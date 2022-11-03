@@ -1,6 +1,8 @@
 import requests
+import logging
 import redis
 import json
+import sys
 import os
 
 # Environmnet Variables
@@ -9,21 +11,26 @@ REDIS_HOST=os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT=int(os.getenv('REDIS_PORT', '6379'))
 REDIS_DB=os.getenv('REDIS_DB', 0)
 
-SUPERHERO_IDS = list(range(1, 731 + 1))
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-def pull_data():
+def pull_data(i=1):
     assert(not API_TOKEN is None)
+    logging.info('Pulling Super Hero Data')
 
     DATA=[]
-    for i in SUPERHERO_IDS:
+    while True:
         print('Pulling Hero ID:%d' % i)
         rs = requests.get('https://www.superheroapi.com/api/%s/%d' % (API_TOKEN, i))
-        DATA.append(json.loads(rs.text))
+        content = json.loads(rs.text)
+        if 'error' in content and content['error'] == 'invalid id':
+            break
+        
+        DATA.append(content)
+        i+=1
 
     with open('superhero.json', 'w') as f:
         print('Writing Data to File')
         json.dump(DATA, f)
-        #R_CONN.hmset('superheros', {'id': i, 'json': json.dumps(payload)})
 
 def clean_powerstats(hero):
     if 'power' in hero['powerstats']:
@@ -53,6 +60,7 @@ def write_data():
     R_CONN = redis.Redis(connection_pool=R_POOL)
 
     R_CONN.delete('superheros')
+    logging.info('Writing Super Hero Data')
     with open('superhero.json', 'r') as f:
         DATA = json.load(f)
         for d in DATA:
@@ -62,4 +70,7 @@ def write_data():
             R_CONN.hset('superheros', key=id, value=json.dumps(d))
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1].upper() == 'PULL':
+        pull_data()
+
     write_data()

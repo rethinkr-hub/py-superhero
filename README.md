@@ -28,6 +28,20 @@ The client instance will connect to the server awaiting combat. The client provi
 
 The user picks an action to send to the server, and then waits for the outcome of the combat against the selected opponent. After acknowledgement from the server in regard to the action, the user then waits for signal from the server for its next turn. If all opponents have been eliminated, then the server will broadcast back to all participants that the game has completed, and then the client will disconnect.
 
+## Build DB
+
+A simple script to pull Super Hero attributes from the [Super Hero API](https://www.superheroapi.com/), clean the data and store in the Redis DB in the `superheros` Hash. The script by default looks for the `superhero.json` file found in this repository to reduce the pulls required from the API. In the case where we want to get an updated version of the Super Hero collection, then we can run the following script to repull and store in `superher.json`.
+
+```bash
+
+export API_TOKEN=[Insert Super Hero API Token HERE]
+export $(cat .env) && python3 build_db.py pull
+
+```
+
+An API Token can be generated at the home page of [Super Hero API](https://www.superheroapi.com/), by loggingin in with your Facebook account.
+
+
 ## Environmment Variables
 
 | Variable Name  | Default   | Description                                                   |
@@ -42,7 +56,7 @@ The user picks an action to send to the server, and then waits for the outcome o
 | SERVER_SLEEP   | 5         | [float] Websocket Server sleep between Send/Receive messages  |
 | LOBBY_TIMEOUT  | 5         | [float] Websocket Server timeout for idle games               |
 | CLIENT_GAMES   | 10        | [int] Max number of games a BOT can play (-1 for no limit)    |
-
+| API_TOKEN      | None      | [str] Super Hero API Key                                      |
 
 # How to Use
 
@@ -53,6 +67,7 @@ To test/debug these services, each service can be started locally by executing t
 ```bash
 
 docker-compose up -d redis && \
+export $(cat .env) && \
 python3 build_db.py && \
 python3 server.py && \
 python3 worker.py
@@ -63,7 +78,7 @@ Once the server is up and running, we can deploy as many clients as we'd like wi
 
 ```bash
 
-python3 client.py
+export $(cat .env) && python3 client.py
 
 ```
 
@@ -98,6 +113,32 @@ docker-compose --env-file .env build && \
 docker-compose --env-file .env up --scale superhero_server=${LOADBALANCE} --scale player=${PLAYERS}
 
 ```
+
+# Super Hero Attributes
+
+This section described the alterations we make to the Super Hero API collection, and any in-game variability to bring the simulation richer features.
+
+## Collection Attributes
+
+Super Hero Health
+$$ P_{Health} = {\operatorname{\argmax}} 
+  \begin{cases} 
+    \text{10 * (Intelligence * Strength * Durability),} \\ 
+    \text{1} \\ 
+  \end{cases} $$
+
+Super Hero Attack Damage
+$$ P_{Damage} = {\operatorname{\argmax}} 
+  \begin{cases} 
+    \text{10 * (Speed * Power * Combat),} \\ 
+    \text{1} \\ 
+  \end{cases} $$
+
+  Where $P$ denotes the Super Hero's Power Stats.
+
+  ## In-Game calculations
+
+  To be introduced in later versions
 
 # API
 
