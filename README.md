@@ -28,6 +28,22 @@ The client instance will connect to the server awaiting combat. The client provi
 
 The user picks an action to send to the server, and then waits for the outcome of the combat against the selected opponent. After acknowledgement from the server in regard to the action, the user then waits for signal from the server for its next turn. If all opponents have been eliminated, then the server will broadcast back to all participants that the game has completed, and then the client will disconnect.
 
+## Environmment Variables
+
+| Variable Name  | Default   | Description                                                   |
+|----------------|-----------|---------------------------------------------------------------|
+| REDIS_HOST     | localhost | [str] Redis Host Address                                      |
+| REDIS_PORT     | 6379      | [int] Redis Host Port                                         |
+| REDIS_DB       | 0         | [int] Redis Databse                                           |
+| REDIS_EXPIRY   | 30        | [int] Redis Key Expiry in seconds                             |
+| WORKER_CHANNEL | CLEAN     | [str] Redis Pub/Sub Channel                                   |
+| WEBSOCKET_HOST | localhost | [str] Websocket Server Address                                |
+| WEBSOCKET_PORT | 5678      | [int] Websocket Server Port                                   |
+| SERVER_SLEEP   | 5         | [float] Websocket Server sleep between Send/Receive messages  |
+| LOBBY_TIMEOUT  | 5         | [float] Websocket Server timeout for idle games               |
+| CLIENT_GAMES   | 10        | [int] Max number of games a BOT can play (-1 for no limit)    |
+
+
 # How to Use
 
 ## Local Development
