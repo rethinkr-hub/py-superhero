@@ -121,24 +121,18 @@ This section described the alterations we make to the Super Hero API collection,
 ## Collection Attributes
 
 Super Hero Health
-$$ P_{Health} = {\operatorname{\argmax}} 
-  \begin{cases} 
-    \text{10 * (Intelligence * Strength * Durability),} \\ 
-    \text{1} \\ 
-  \end{cases} $$
+
+$P_{Health}=max(10*(p_{Intelligence}*P_{Strength}*P_{Durability}),1)$
 
 Super Hero Attack Damage
-$$ P_{Damage} = {\operatorname{\argmax}} 
-  \begin{cases} 
-    \text{10 * (Speed * Power * Combat),} \\ 
-    \text{1} \\ 
-  \end{cases} $$
 
-  Where $P$ denotes the Super Hero's Power Stats.
+$P_{Damage}=max(10*(p_{Speed}*P_{Power}*P_{Combat}),1)$
 
-  ## In-Game calculations
+Where $P$ denotes the Super Hero's Power Stats.
 
-  To be introduced in later versions
+## In-Game calculations
+
+To be introduced in later versions
 
 # API
 
