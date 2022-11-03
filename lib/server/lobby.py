@@ -61,7 +61,7 @@ def find_open_games(participants):
     for g in R_CONN.lrange('games:players:%d' % participants, 0, -1):
         if not g is None:
             game_status = R_CONN.get('games:%s:status' % g.decode('utf8'))
-            if not game_status is None and game_status.decode('utf8') in ['Initializing', 'Waiting Lobby']:
+            if not game_status is None and game_status.decode('utf8') in ['Initializing', 'Waiting Lobby', 'Time Out']:
                 open_games.append(g.decode('utf8'))
         
     return open_games

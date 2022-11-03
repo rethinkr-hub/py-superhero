@@ -340,7 +340,7 @@ Enpoint for retreiving user's heros in game. Any user can request another user's
 
 The user sends an attack action to the server, with an opponent selected at random. The server then registers how much damage the opponent has taken in combat. The attacking user is then provided the details of the combat with the registered damage, and the enemy's before/after health. Here are the following registries to Redis
 
- * `game:%game_token%:logs` List archiving **GAME TOKEN** for analysis
+ * `games:%game_token%:logs` List archiving **GAME TOKEN** for analysis
  * `games:%game_token%:order` List of **GAME TOKEN** user order which the user will get ommitted from once dead
  * `games:%game_token%:superheros:%user_token%` Hash to monitor **USER TOKEN** super hero's attributes in **GAME TOKEN**
 
