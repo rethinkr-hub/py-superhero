@@ -12,6 +12,7 @@ import os
 # Enivornment Variables
 SERVER_SLEEP=float(os.getenv('SERVER_SLEEP', 5))
 LOBBY_TIMEOUT=int(os.getenv('LOBBY_TIMEOUT', 5))
+WORKER_CHANNEL=os.getenv('WORKER_CHANNEL', 'CLEAN')
 
 def validate_user_token(f):
     @wraps(f)
@@ -183,7 +184,7 @@ class LobbyRoute:
     async def clean_game(self, user_token, game_token):
         await asyncio.sleep(SERVER_SLEEP * 3)
         R_CONN.publish(
-            'clean', json.dumps({
+            WORKER_CHANNEL, json.dumps({
                 'game_token': game_token, 
                 'user_token': user_token,
         }))
