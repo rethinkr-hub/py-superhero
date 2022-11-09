@@ -67,7 +67,7 @@ class GameActionRoute(LobbyRoute):
                 }
             })
 
-            R_CONN.lpush('game:%s:logs', log)
+            R_CONN.rpush('games:%s:logs' % msg['PAYLOAD']['GAME_TOKEN'], log)
             if combat['enemy_health_post'] == 0:
                 R_CONN.lrem('games:%s:order' % msg['PAYLOAD']['GAME_TOKEN'], 1, msg['PAYLOAD']['ENEMY_TOKEN'])
 
@@ -111,6 +111,7 @@ class GameHeroRoute(LobbyRoute):
     @validate_user_token
     @validate_game_token
     async def hero(self, ws, msg):
+        # Potential Breaking Point
         hero = self.get_hero(msg['PAYLOAD']['GAME_TOKEN'], msg['PAYLOAD']['USER_TOKEN'])
         await ws.send(json.dumps({
             'PAYLOAD': {

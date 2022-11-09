@@ -83,15 +83,15 @@ class Client:
                             self.participants = message['PAYLOAD']['PARTICIPANTS']
                             self.participants_heros = message['PAYLOAD']['PARTICIPANTS_HEROS']
                     
-                    if 'STATUS' in message and 'GAME' in message['STATUS'] and message['STATUS']['GAME'] == 'USER\'S TURN':
-                        await self.action()
-                    
                     if 'STATUS' in message and 'GAME' in message['STATUS'] and message['STATUS']['GAME'] in ['COMPLETE', 'TIMED OUT']:
                         break
 
                     if 'STATUS' in message and 'DETAILS' in message['STATUS'] and 'ENEMY_STATUS' in message['STATUS']['DETAILS'] and \
                         message['STATUS']['DETAILS']['ENEMY_STATUS'] == 'DEAD':
                         break
+
+                    if 'STATUS' in message and 'GAME' in message['STATUS'] and message['STATUS']['GAME'] == 'USER\'S TURN':
+                        await self.action()
 
 
         except websockets.exceptions.ConnectionClosedError as exc:

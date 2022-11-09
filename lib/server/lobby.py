@@ -1,6 +1,7 @@
 from functools import wraps
 from uuid import uuid4
 from lib.server import router, R_CONN, misc
+from lib.pubsub import publish
 
 import inspect
 import websockets
@@ -12,7 +13,6 @@ import os
 # Enivornment Variables
 SERVER_SLEEP=float(os.getenv('SERVER_SLEEP', 5))
 LOBBY_TIMEOUT=int(os.getenv('LOBBY_TIMEOUT', 5))
-WORKER_CHANNEL=os.getenv('WORKER_CHANNEL', 'CLEAN')
 
 def validate_user_token(f):
     @wraps(f)
@@ -109,6 +109,7 @@ class JoinRoute:
         participants = int(message['PAYLOAD']['PARTICIPANTS'])
         if not 'GAME_TOKEN' in message['PAYLOAD']:
             open_games = find_open_games(participants)
+            # Potential Breaking Point
             game_token = open_games[random.randint(0, len(open_games) - 1)]
         else:
             game_token = message['PAYLOAD']['GAME_TOKEN']
@@ -183,17 +184,15 @@ class LobbyRoute:
     
     async def clean_game(self, user_token, game_token):
         await asyncio.sleep(SERVER_SLEEP * 3)
-        R_CONN.publish(
-            WORKER_CHANNEL, json.dumps({
-                'game_token': game_token, 
-                'user_token': user_token,
-        }))
+        msg = {'game_token': game_token, 'user_token': user_token}
+        publish(msg)
 
     async def handle_game_turn(self, ws, user_token, game_token, session_time=0):
         while R_CONN.get('games:%s:status' % game_token).decode('utf8') != 'Completed':
             await self.health_check(game_token)
 
             if not R_CONN.get('games:%s:status' % game_token) == 'In-Progress':
+                # Potential Break
                 player = R_CONN.lindex('games:%s:order' % game_token, 0).decode('utf8')
                 player_hero = self.get_hero(game_token, user_token)
                 if (
@@ -229,9 +228,11 @@ class LobbyRoute:
     @validate_game_token
     async def wait_players(self, ws, msg, session_time=0):
         game_token = msg['PAYLOAD']['GAME_TOKEN']
+        # Potential Break
         game_participants = int(R_CONN.get('games:%s:participants' % game_token).decode('utf8'))
         
         while True:
+            # Potential Break
             if R_CONN.zmscore('games:participants', [game_token])[0] >= game_participants:
                 participants = [p.decode('utf8') for p in R_CONN.smembers('games:%s' % game_token)]
                 participants_heros = self.get_participant_heros(game_token, participants)
