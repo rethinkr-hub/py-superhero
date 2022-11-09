@@ -66,7 +66,7 @@ To test/debug these services, each service can be started locally by executing t
 
 ```bash
 
-docker-compose up -d redis && \
+docker-compose -f compose/docker-compose.prod.yml up -d redis && \
 export $(cat .env) && \
 python3 build_db.py && \
 python3 server.py && \
@@ -98,8 +98,8 @@ Spinning up a production application with docker-compose is simple. Follow the c
 ```bash
 
 export PLAYERS=10
-docker-compose --env-file .env build && \
-docker-compose --env-file .env up --scale player=${PLAYERS}
+docker-compose --env-file .env -f compose/docker-compose.prod.yml build && \
+docker-compose --env-file .env -f compose/docker-compose.prod.yml up --scale player=${PLAYERS}
 
 ```
 
@@ -109,8 +109,8 @@ We can even load balance the server with the following
 
 export PLAYERS=10
 export LOADBALANCE=3
-docker-compose --env-file .env build && \
-docker-compose --env-file .env up --scale superhero_server=${LOADBALANCE} --scale player=${PLAYERS}
+docker-compose --env-file .env -f compose/docker-compose.prod.yml build && \
+docker-compose --env-file .env -f compose/docker-compose.prod.yml up --scale superhero_server=${LOADBALANCE} --scale player=${PLAYERS}
 
 ```
 
