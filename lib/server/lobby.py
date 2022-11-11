@@ -1,11 +1,10 @@
 from functools import wraps
 from uuid import uuid4
 from lib.server import router, R_CONN, misc
-from lib.pubsub import publish
 
-import inspect
 import websockets
 import asyncio
+import logging
 import random
 import json
 import os
@@ -13,10 +12,16 @@ import os
 # Enivornment Variables
 SERVER_SLEEP=float(os.getenv('SERVER_SLEEP', 5))
 LOBBY_TIMEOUT=int(os.getenv('LOBBY_TIMEOUT', 5))
+BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+
+# Setup
+QUEUE=__name__
+logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
 
 def validate_user_token(f):
     @wraps(f)
     async def wrapper(*args, **kwargs):
+        logger.debug('Decorator Validating User Token')
         route, ws, msg = args
         if not 'USER_TOKEN' in msg['PAYLOAD']:
             await ws.send(json.dumps({
@@ -31,6 +36,7 @@ def validate_user_token(f):
 def validate_participants(f):
     @wraps(f)
     async def wrapper(*args, **kwargs):
+        logger.debug('Decorator Validating Requested Participants')
         route, ws, msg = args
         if not 'PARTICIPANTS' in msg['PAYLOAD']:
             await ws.send(json.dumps({
@@ -45,6 +51,7 @@ def validate_participants(f):
 def validate_game_token(f):
     @wraps(f)
     async def wrapper(*args, **kwargs):
+        logger.debug('Decorator Validating Game Token')
         route, ws, msg = args
         if not 'GAME_TOKEN' in msg['PAYLOAD']:
             await ws.send(json.dumps({
@@ -57,6 +64,7 @@ def validate_game_token(f):
     return wrapper
 
 def find_open_games(participants):
+    logger.debug('Searching Open Games')
     open_games = []
     for g in R_CONN.lrange('games:players:%d' % participants, 0, -1):
         if not g is None:
@@ -72,6 +80,7 @@ class JoinRoute:
     def create_game(f):
         @wraps(f)
         async def wrapper(*args, **kwargs):
+            logger.debug('Decorator Creating Game')
             route, ws, msg = args
             participants = int(msg['PAYLOAD']['PARTICIPANTS'])
             open_games = find_open_games(participants)
@@ -90,6 +99,7 @@ class JoinRoute:
         return wrapper
         
     def select_character(self, game_token, user_token):
+        logger.debug('Registering Super Hero')
         while True:
             id = random.randint(1, R_CONN.hlen('superheros'))
             if not R_CONN.sismember('games:%s:superheros' % game_token, id):
@@ -106,6 +116,7 @@ class JoinRoute:
     @validate_participants
     @create_game
     async def find_game(self, ws, message):
+        logger.debug('Finding Available Game to Join')
         participants = int(message['PAYLOAD']['PARTICIPANTS'])
         if not 'GAME_TOKEN' in message['PAYLOAD']:
             open_games = find_open_games(participants)
@@ -116,8 +127,7 @@ class JoinRoute:
         
         R_CONN.zincrby('games:participants', 1, game_token)
         R_CONN.sadd('games:%s' % game_token, message['PAYLOAD']['USER_TOKEN'])
-
-        await ws.send(json.dumps({
+        log = json.dumps({
             'PAYLOAD': {
                 'GAME_TOKEN': game_token,
                 'HERO_ID': self.select_character(game_token, message['PAYLOAD']['USER_TOKEN'])
@@ -125,7 +135,9 @@ class JoinRoute:
             'STATUS': {
                 'JOINED': 'SUCESS'
             }
-        }))
+        })
+        logging.info('Hero Selected', extra={'queue': QUEUE, 'task':log})
+        await ws.send(log)
 
     async def handle(self, ws, path):
         try:
@@ -142,6 +154,7 @@ def waiting_lobby(f):
     @wraps
     async def wrapper(*args, **kwargs):
         route, ws, msg = args
+        logger.debug('Decorator Waiting Lobby')
         game_token = msg['PAYLOAD']['GAME_TOKEN']
         R_CONN.set('games:%s:status' % game_token, 'Waiting Lobby')
 
@@ -153,6 +166,7 @@ def waiting_lobby(f):
 class LobbyRoute:
     
     def get_hero(self, game_token, user_token):
+        logger.debug('Pulling Hero Attributes')
         try:
             return {
                 'token': user_token,
@@ -164,6 +178,7 @@ class LobbyRoute:
             raise Exception('No Hero', 'Game Token', game_token, 'User Token', user_token, exc)
     
     def get_participant_heros(self, game_token, participant_tokens):
+        logger.debug('Pull Game\'s Participating Heros')
         heros = {}
         for p in participant_tokens:
             heros[p] = self.get_hero(game_token, p)
@@ -171,6 +186,7 @@ class LobbyRoute:
         return heros
     
     async def health_check(self, game_token):
+        logger.debug('Validating Game Health')
         healthy = set()
         participants = [p.decode('utf8') for p in R_CONN.smembers('games:%s' % game_token)]
         for p in participants:
@@ -183,11 +199,13 @@ class LobbyRoute:
             R_CONN.set('games:%s:status' % game_token, 'In-Progress')
     
     async def clean_game(self, user_token, game_token):
+        logger.debug('Clean Game')
         await asyncio.sleep(SERVER_SLEEP * 3)
-        msg = {'game_token': game_token, 'user_token': user_token}
-        publish(msg)
+        log = {'game_token': game_token, 'user_token': user_token}
+        logger.info('Cleaning Game Records', extra={'queue': QUEUE, 'task':log})
 
     async def handle_game_turn(self, ws, user_token, game_token, session_time=0):
+        logger.debug('Handling Next Player Turn')
         while R_CONN.get('games:%s:status' % game_token).decode('utf8') != 'Completed':
             await self.health_check(game_token)
 
@@ -201,32 +219,37 @@ class LobbyRoute:
                     player_hero['health'] > 0
                 ):
                     R_CONN.set('games:%s:status' % game_token, 'Waiting Player')
-                    await ws.send(json.dumps({
+                    log = json.dumps({
                         'PAYLOAD': {
                             'GAME_TOKEN': game_token
                         },
                         'STATUS': {
                             'GAME': 'USER\'S TURN'
                         }
-                    }))
+                    })
+                    logging.info('Pushing User\'s Turn Notification', extra={'queue': QUEUE, 'task':log})
+                    await ws.send(log)
             
             session_time += SERVER_SLEEP
             await asyncio.sleep(SERVER_SLEEP)
         
-        await ws.send(json.dumps({
+        log = json.dumps({
             'PAYLOAD': {
                 'GAME_TOKEN': game_token
             },
             'STATUS': {
                 'GAME': 'COMPLETE'
             }
-        }))
+        })
+        logging.info('Game Finished', queue=QUEUE, message=log)
+        await ws.send(log)
         await self.clean_game(user_token, game_token)
 
     @misc.validate_payload
     @validate_user_token
     @validate_game_token
     async def wait_players(self, ws, msg, session_time=0):
+        logger.debug('Waiting Next Player Action')
         game_token = msg['PAYLOAD']['GAME_TOKEN']
         # Potential Break
         game_participants = int(R_CONN.get('games:%s:participants' % game_token).decode('utf8'))
@@ -242,30 +265,34 @@ class LobbyRoute:
                         R_CONN.rpush('games:%s:order' % game_token, p)
                 
                 try:
-                    await ws.send(json.dumps({
-                            'PAYLOAD': {
-                                'GAME_TOKEN': game_token,
-                                'PARTICIPANTS': participants,
-                                'PARTICIPANTS_HEROS': participants_heros,
-                            },
-                            'STATUS': {
-                                'GAME': 'START'
-                            }
-                        }))
+                    log = json.dumps({
+                        'PAYLOAD': {
+                            'GAME_TOKEN': game_token,
+                            'PARTICIPANTS': participants,
+                            'PARTICIPANTS_HEROS': participants_heros,
+                        },
+                        'STATUS': {
+                            'GAME': 'START'
+                        }
+                    })
+                    logger.info('Starting Match', extra={'queue': QUEUE, 'task':log})
+                    await ws.send(log)
 
                     break
                 except websockets.exceptions.ConnectionClosedError:
                     pass
             elif session_time > LOBBY_TIMEOUT:
                 R_CONN.set('games:%s:status' % game_token, 'Timed Out')
-                await ws.send(json.dumps({
+                log = json.dumps({
                     'PAYLOAD': {
                         'GAME_TOKEN': game_token
                     },
                     'STATUS': {
                         'GAME': 'TIMED OUT'
                     }
-                }))
+                })
+                logger.info('Game Timed Out', extra={'queue': QUEUE, 'task':log})
+                await ws.send(log)
 
                 return await self.clean_game(msg['PAYLOAD']['USER_TOKEN'], game_token)
             

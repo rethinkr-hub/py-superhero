@@ -1,3 +1,5 @@
+from lib.utils.loggers import *
+
 import requests
 import logging
 import redis
@@ -10,16 +12,19 @@ API_TOKEN=os.getenv('API_TOKEN', None)
 REDIS_HOST=os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT=int(os.getenv('REDIS_PORT', '6379'))
 REDIS_DB=os.getenv('REDIS_DB', 0)
+BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+# Setup
+QUEUE='build_db.%s' % __name__
+logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
 
 def pull_data(i=1):
     assert(not API_TOKEN is None)
-    logging.info('Pulling Super Hero Data')
+    logger.info('Pulling Super Hero Data', extra={'queue': QUEUE})
 
     DATA=[]
     while True:
-        print('Pulling Hero ID:%d' % i)
+        logger.info('Pulling Hero ID:%d' % i, extra={'queue': QUEUE})
         rs = requests.get('https://www.superheroapi.com/api/%s/%d' % (API_TOKEN, i))
         content = json.loads(rs.text)
         if 'error' in content and content['error'] == 'invalid id':
@@ -29,7 +34,7 @@ def pull_data(i=1):
         i+=1
 
     with open('superhero.json', 'w') as f:
-        print('Writing Data to File')
+        logger.info('Writing Data to File', extra={'queue': QUEUE})
         json.dump(DATA, f)
 
 def clean_powerstats(hero):
@@ -60,7 +65,7 @@ def write_data():
     R_CONN = redis.Redis(connection_pool=R_POOL)
 
     R_CONN.delete('superheros')
-    logging.info('Writing Super Hero Data')
+    logger.info('Writing Super Hero Data', extra={'queue': QUEUE})
     with open('superhero.json', 'r') as f:
         DATA = json.load(f)
         for d in DATA:

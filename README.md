@@ -1,6 +1,6 @@
 # Super Hero Combat Simulator
 
-This repo is dedicated to simulating Super Hero combat through WebSocket protocol and automation. The motivation is to provide a replicatable source for realtime combat simulation which provides a free data simulator for testing streaming applications. The objective of this repo is to only offer a WS API for spinning up a server for clients to interact with each through super hero fighting.
+This repo is dedicated to simulating Super Hero combat through WebSocket protocol, and templating a modular plugin pattern for DataOps such as pubsub, logging transport, ETL pipelines, and streaming analytics. The motivation is to provide a replicatable source for realtime combat simulation which provides a free data simulator for testing streaming applications. The objective of this repo is to only offer a WS API for spinning up a server for clients to interact with each through super hero fighting.
 
 This repo doesn't provide guidance for creating multi-player frameworks, nor does it offer any user experience for Super Hero Combat. Gameplay is only intended to be *bot vs bot*, and pretty stupid bots at that, for the purpose of currating free (useless) data.
 
@@ -14,11 +14,13 @@ The work done herein couldn't be possible without the fantastic collection of Su
 
 The server instance will connect clients together to begin combat. It will wait for clients to login, and provide the number of contestants the client is willing to fight simultaneously. On login, the server will sort clients into their own lobby room by registering them to a game token. If no lobby room exists with the configured amount of participants the client is requesting then one is created. Once the number of participants is satisified, the server will call all clients to begin play, and iteratively let each client know when their turn is.
 
+The server instance also offers the meat of the logging transport capabilities. Two different logging transports are created at spin-up to log messages to the stdout stream, and publish messages to the Redis pubsub channels based on logger names. The worker tasks are published to the `lib.server.lobby` channel where the worker service will action its routines.
+
 Upon completion of the game, the server will call all participants to indicate the game has finished. The clients are then signaled to close connection. At this time, all that is left is to clean up the DB registries which was monitoring game activities.
 
 ## Worker
 
-This is where the clean up work is done. At the end of each gamge, the Server publishes a message to the `clean` channel in Redis where this work subscribes to. The worker consumes messages from this channel, and applies expiry times to all Redis Keys (found in the API section) while deleting all other objects.
+This is where the clean up work is done. At the end of each gamge, the Server publishes a message to the `lib.server.lobby` channel in Redis where this work subscribes to. The worker consumes messages from this channel, and applies expiry times to all Redis Keys (found in the API section) while deleting all other objects.
 
 This worker has incredibly simple tasks for the purpose of illustrating the native Pub/Sub capability in Redis. We aim to expand on this application's *worker* service in the Pub/Sub sub folder.
 
@@ -57,6 +59,8 @@ An API Token can be generated at the home page of [Super Hero API](https://www.s
 | LOBBY_TIMEOUT  | 5         | [float] Websocket Server timeout for idle games               |
 | CLIENT_GAMES   | 10        | [int] Max number of games a BOT can play (-1 for no limit)    |
 | API_TOKEN      | None      | [str] Super Hero API Key                                      |
+| BASE_LOGGER    | base      | [str] Logger Handler to output logging messages               |
+| LOG_LEVEL      | INFO      | [str] Log level to filter logging messages                    |
 
 # How to Use
 

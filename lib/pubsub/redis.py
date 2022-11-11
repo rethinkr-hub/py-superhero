@@ -4,11 +4,14 @@ import json
 import os
 
 # Envionrment Variabels
-WORKER_CHANNEL=os.getenv('WORKER_CHANNEL', 'CLEAN').upper()
+WORKER_CHANNEL=os.getenv('WORKER_CHANNEL', 'lib.server.lobby')
 REDIS_EXPIRY=int(os.getenv('REDIS_EXPIRY', 30))
 
-def redis_publisher(message):
-    R_CONN.publish(WORKER_CHANNEL, json.dumps(message))
+def redis_publisher(queue, message):
+    if isinstance(message, dict):
+        message = json.dumps(message)
+
+    R_CONN.publish(queue, json.dumps(message))
 
 class Redis_Subscriber:
 
@@ -21,6 +24,8 @@ class Redis_Subscriber:
         self._callback_function = callback_function
     
     def run(self):
+        assert(not WORKER_CHANNEL is None)
+
         sub = R_CONN.pubsub()
         sub.subscribe(WORKER_CHANNEL)
         for msg in sub.listen():

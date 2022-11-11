@@ -5,11 +5,21 @@ from lib.server.lobby import LobbyRoute, validate_game_token, validate_user_toke
 
 import websockets
 import datetime
+import logging
 import json
+import os
+
+# Environment Variables
+BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+
+# Setup
+QUEUE=__name__
+logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
 
 def validate_action(f):
     @wraps(f)
     async def wrapper(*args, **kwargs):
+        logger.debug('Decorator Validating Action Message')
         route, ws, msg = args
         if not 'ENEMY_TOKEN' in msg['PAYLOAD']:
             await ws.send(json.dumps({
@@ -30,6 +40,7 @@ def validate_action(f):
 class GameActionRoute(LobbyRoute):
     
     def attack(self, game_token, player_hero, enemy_hero):
+        logger.debug('Registering Attack')
         combat = {
             'enemy_health_prior': enemy_hero['health'],
             'user_attack_damage': player_hero['attack'],
@@ -45,6 +56,7 @@ class GameActionRoute(LobbyRoute):
     @validate_game_token
     @validate_action
     async def action(self, ws, msg):
+        logger.debug('Processing Action')
         if msg['PAYLOAD']['ENEMY_TOKEN']:
             player_hero = self.get_hero(msg['PAYLOAD']['GAME_TOKEN'], msg['PAYLOAD']['USER_TOKEN'])
             enemy_hero = self.get_hero(msg['PAYLOAD']['GAME_TOKEN'], msg['PAYLOAD']['ENEMY_TOKEN'])
@@ -67,6 +79,7 @@ class GameActionRoute(LobbyRoute):
                 }
             })
 
+            logger.info('Attack Completed', extra={'queue': QUEUE, 'task':log})
             R_CONN.rpush('games:%s:logs' % msg['PAYLOAD']['GAME_TOKEN'], log)
             if combat['enemy_health_post'] == 0:
                 R_CONN.lrem('games:%s:order' % msg['PAYLOAD']['GAME_TOKEN'], 1, msg['PAYLOAD']['ENEMY_TOKEN'])
@@ -76,6 +89,7 @@ class GameActionRoute(LobbyRoute):
                 'games:%s:order' % msg['PAYLOAD']['GAME_TOKEN'], 
                 'LEFT', 'RIGHT')
         else:
+            R_CONN.set('games:%s:status' % msg['PAYLOAD']['GAME_TOKEN'], 'Completed')
             log = json.dumps({
                 'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'PAYLOAD': {
@@ -90,6 +104,7 @@ class GameActionRoute(LobbyRoute):
                     }
                 }
             })
+            logger.error('Attacked Dead Enemy', extra={'queue': QUEUE, 'task':log})
         
         await ws.send(log)
     
@@ -112,6 +127,7 @@ class GameHeroRoute(LobbyRoute):
     @validate_game_token
     async def hero(self, ws, msg):
         # Potential Breaking Point
+        logger.debug('Assigning Hero')
         hero = self.get_hero(msg['PAYLOAD']['GAME_TOKEN'], msg['PAYLOAD']['USER_TOKEN'])
         await ws.send(json.dumps({
             'PAYLOAD': {

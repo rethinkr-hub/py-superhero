@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-
-# Fork of websockets Quick Start
-# https://websockets.readthedocs.io/en/stable/intro/quickstart.html
-
-# Websocket History & Areas of Improvement
-# https://ably.com/topic/websockets
-
 import websockets_routes
 import redis
 import os

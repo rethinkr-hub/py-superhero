@@ -3,13 +3,23 @@ from uuid import uuid4
 from lib.server import router, R_CONN, misc
 
 import websockets
+import logging
 import json
+import os
+
+# Environment Variables
+BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+
+# Setup
+QUEUE=__name__
+logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
 
 @router.route('/api/v1/login')
 class LoginRoute:
     def validate_superheros_exist(f):
         @wraps(f)
         async def wrapper(*args, **kwargs):
+            logger.debug('Decorator Validating Super Hero Exists')
             route, ws, msg = args
             if R_CONN.hlen('superheros') <= 0:
                 await ws.send(json.dumps({
@@ -24,6 +34,7 @@ class LoginRoute:
     def validate_login(f):
         @wraps(f)
         async def wrapper(*args, **kwargs):
+            logger.debug('Decorator Validating User Login')
             route, ws, msg = args
             if not 'USER' in msg['PAYLOAD']:
                 await ws.send(json.dumps({
@@ -38,6 +49,7 @@ class LoginRoute:
     def create_user(f):
         @wraps(f)
         async def wrapper(*args, **kwargs):
+            logger.debug('Decorator Creating User')
             route, ws, msg = args
             if not R_CONN.hexists('users', msg['PAYLOAD']['USER']):
                 R_CONN.hset('users', msg['PAYLOAD']['USER'], str(uuid4()))
@@ -55,6 +67,7 @@ class LoginRoute:
     @validate_superheros_exist
     @create_user
     async def login(self, ws, message):
+        logger.debug('Processing Login')
         user_token = R_CONN.hget('users', message['PAYLOAD']['USER']).decode('utf8')
         await ws.send(json.dumps({
             'PAYLOAD': {

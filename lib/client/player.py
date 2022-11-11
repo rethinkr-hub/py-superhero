@@ -1,19 +1,21 @@
-#!/usr/bin/env python
+from lib.utils.loggers import *
 
 import websockets
 import asyncio
 import logging
 import random
 import json
-import sys
 import os
 
 # Enviornment Variables
 WEBSOCKET_HOST=os.getenv('WEBSOCKET_HOST', 'localhost')
 WEBSOCKET_PORT=int(os.getenv('WEBSOCKET_PORT', '5678'))
 CLIENT_SLEEP=float(os.getenv('CLIENT_SLEEP', 1))
+BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+# Setup
+QUEUE=__name__
+logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
 
 class Client:
     USER_TOKEN=None
@@ -44,7 +46,7 @@ class Client:
                 async with websockets.connect('ws://%s:%d/api/v1/login' % (WEBSOCKET_HOST, WEBSOCKET_PORT)) as websocket:
                     await websocket.send(json.dumps({'PAYLOAD': {'USER': USER}}))
                     message = json.loads(await websocket.recv())
-                    logging.info(message)
+                    logger.info(message)
 
                     if 'PAYLOAD' in message and 'USER_TOKEN' in message['PAYLOAD']:
                         self.USER_TOKEN = message['PAYLOAD']['USER_TOKEN']
@@ -61,7 +63,7 @@ class Client:
                 await websocket.send(json.dumps({'PAYLOAD': {'USER_TOKEN': self.USER_TOKEN, 'PARTICIPANTS': participants}}))
                 while True:
                     message = json.loads(await websocket.recv())
-                    logging.info(message)
+                    logger.info(message)
 
                     if 'PAYLOAD' in message and 'GAME_TOKEN' in message['PAYLOAD']:
                         self.GAME_TOKEN = message['PAYLOAD']['GAME_TOKEN']
@@ -76,7 +78,7 @@ class Client:
                 await websocket.send(json.dumps({'PAYLOAD': {'GAME_TOKEN': self.GAME_TOKEN, 'USER_TOKEN': self.USER_TOKEN}}))
                 while True:
                     message = json.loads(await websocket.recv())
-                    logging.info(message)
+                    logger.info(message)
 
                     if 'STATUS' in message and 'GAME' in message['STATUS'] and message['STATUS']['GAME'] == 'START':
                         if 'PAYLOAD' in message and set(['PARTICIPANTS', 'PARTICIPANTS_HEROS']) <= set(message['PAYLOAD'].keys()):
@@ -131,7 +133,7 @@ class Client:
                 }))
                 
                 message = json.loads(await websocket.recv())
-                logging.info(message)
+                logger.info(message)
 
 
         except websockets.exceptions.ConnectionClosedError:
