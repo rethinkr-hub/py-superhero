@@ -1,21 +1,24 @@
 from lib.client.player import Client
-from lib.utils.loggers import *
+from lib.utils import loggers
 
 import websockets
+import importlib
 import asyncio
 import logging
 import random
 import os
 
 # Environment Variables
-CLIENT_GAMES=os.getenv('CLIENT_GAMES', 10)
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
-
-# Setup
-QUEUE='client.%s' % __name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+CLIENT_GAMES=int(os.getenv('CLIENT_GAMES', 10))
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 async def main(games_played=0):
+    logger_module = importlib.import_module('lib.utils.loggers.%s' % LOGGER_MODULE)
+    
+    # Setup
+    QUEUE='client.%s' % __name__
+    logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
+    
     while games_played < CLIENT_GAMES:
         logger.info('Starting Game %d' % (games_played + 1), extra={'queue': QUEUE})
         client = Client()

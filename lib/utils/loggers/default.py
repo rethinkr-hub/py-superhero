@@ -6,7 +6,7 @@ import os
 # Environment Variables
 LOG_LEVEL=os.getenv('LOG_LEVEL', 'INFO')
 
-logger = logging.getLogger('base')
+logger = logging.getLogger('default')
 logger.setLevel(log_level('DEBUG'))
 
 base_handler = logging.StreamHandler()

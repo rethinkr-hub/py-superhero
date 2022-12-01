@@ -59,7 +59,7 @@ An API Token can be generated at the home page of [Super Hero API](https://www.s
 | LOBBY_TIMEOUT  | 5         | [float] Websocket Server timeout for idle games               |
 | CLIENT_GAMES   | 10        | [int] Max number of games a BOT can play (-1 for no limit)    |
 | API_TOKEN      | None      | [str] Super Hero API Key                                      |
-| BASE_LOGGER    | base      | [str] Logger Handler to output logging messages               |
+| LOGGER_MODULE  | default   | [str] Logger Handler to output logging messages               |
 | LOG_LEVEL      | INFO      | [str] Log level to filter logging messages                    |
 
 # How to Use

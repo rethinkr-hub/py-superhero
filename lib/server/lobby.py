@@ -12,11 +12,15 @@ import os
 # Enivornment Variables
 SERVER_SLEEP=float(os.getenv('SERVER_SLEEP', 5))
 LOBBY_TIMEOUT=int(os.getenv('LOBBY_TIMEOUT', 5))
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 # Setup
 QUEUE=__name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
+
+# Errors
+class NoOpenGamesError(Exception):
+    pass
 
 def validate_user_token(f):
     @wraps(f)
@@ -65,14 +69,19 @@ def validate_game_token(f):
 
 def find_open_games(participants):
     logger.debug('Searching Open Games')
-    open_games = []
-    for g in R_CONN.lrange('games:players:%d' % participants, 0, -1):
-        if not g is None:
-            game_status = R_CONN.get('games:%s:status' % g.decode('utf8'))
-            if not game_status is None and game_status.decode('utf8') in ['Initializing', 'Waiting Lobby', 'Time Out']:
-                open_games.append(g.decode('utf8'))
-        
-    return open_games
+    try:
+        open_games = []
+        for g in R_CONN.lrange('games:players:%d' % participants, 0, -1):
+            if not g is None:
+                game_status = R_CONN.get('games:%s:status' % g.decode('utf8'))
+                if not game_status is None and game_status.decode('utf8') in ['Initializing', 'Waiting Lobby', 'Time Out']:
+                    open_games.append(g.decode('utf8'))
+                    
+        if len(open_games) == 0:
+            raise NoOpenGamesError('No Open Games Available to Join')
+    finally:
+        return open_games
+    
 
 @router.route('/api/v1/game/find')
 class JoinRoute:
@@ -117,27 +126,31 @@ class JoinRoute:
     @create_game
     async def find_game(self, ws, message):
         logger.debug('Finding Available Game to Join')
-        participants = int(message['PAYLOAD']['PARTICIPANTS'])
-        if not 'GAME_TOKEN' in message['PAYLOAD']:
-            open_games = find_open_games(participants)
-            # Potential Breaking Point
-            game_token = open_games[random.randint(0, len(open_games) - 1)]
-        else:
-            game_token = message['PAYLOAD']['GAME_TOKEN']
+
+        try:
+            participants = int(message['PAYLOAD']['PARTICIPANTS'])
+            if not 'GAME_TOKEN' in message['PAYLOAD']:
+                open_games = find_open_games(participants)
+                game_token = open_games[random.randint(0, len(open_games) - 1)]
+            else:
+                game_token = message['PAYLOAD']['GAME_TOKEN']
         
-        R_CONN.zincrby('games:participants', 1, game_token)
-        R_CONN.sadd('games:%s' % game_token, message['PAYLOAD']['USER_TOKEN'])
-        log = json.dumps({
-            'PAYLOAD': {
-                'GAME_TOKEN': game_token,
-                'HERO_ID': self.select_character(game_token, message['PAYLOAD']['USER_TOKEN'])
-            },
-            'STATUS': {
-                'JOINED': 'SUCESS'
-            }
-        })
-        logging.info('Hero Selected', extra={'queue': QUEUE, 'task':log})
-        await ws.send(log)
+            R_CONN.zincrby('games:participants', 1, game_token)
+            R_CONN.sadd('games:%s' % game_token, message['PAYLOAD']['USER_TOKEN'])
+            log = json.dumps({
+                'PAYLOAD': {
+                    'GAME_TOKEN': game_token,
+                    'HERO_ID': self.select_character(game_token, message['PAYLOAD']['USER_TOKEN'])
+                },
+                'STATUS': {
+                    'JOINED': 'SUCESS'
+                }
+            })
+            logging.info('Hero Selected', extra={'queue': QUEUE, 'task': log})
+            await ws.send(log)
+        except (NoOpenGamesError, ValueError):
+            logger.error('User: %s | No Available Games to Join - Retrying Search' % message['PAYLOAD']['USER_TOKEN'])
+            await self.find_game(ws, message)
 
     async def handle(self, ws, path):
         try:
@@ -151,7 +164,7 @@ class JoinRoute:
         await ws.close()
 
 def waiting_lobby(f):
-    @wraps
+    @wraps(f)
     async def wrapper(*args, **kwargs):
         route, ws, msg = args
         logger.debug('Decorator Waiting Lobby')
@@ -162,20 +175,50 @@ def waiting_lobby(f):
         
     return wrapper
 
+def validate_participants(f):
+    @wraps(f)
+    async def wrapper(*args, **kwargs):
+        route, ws, msg = args
+        logger.debug('Verifying Participant # Exists')
+        game_token = msg['PAYLOAD']['GAME_TOKEN']
+        
+        if R_CONN.get('games:%s:participants' % game_token) is None:
+            R_CONN.set('games:%s:status' % game_token, 'Timed Out')
+            log = json.dumps({
+                'PAYLOAD': {
+                    'GAME_TOKEN': game_token
+                },
+                'STATUS': {
+                    'GAME': 'TIMED OUT'
+                }
+            })
+            logger.info('Game Timed Out', extra={'queue': QUEUE, 'task':log})
+            return await ws.send(log)
+
+        return await f(*args, **kwargs)
+    
+    return wrapper
+
 @router.route('/api/v1/game/lobby')
 class LobbyRoute:
     
     def get_hero(self, game_token, user_token):
         logger.debug('Pulling Hero Attributes')
-        try:
+        id = R_CONN.hget('games:%s:superheros:%s' % (game_token, user_token), 'id')
+        if not id is None:
             return {
                 'token': user_token,
                 'id': int(R_CONN.hget('games:%s:superheros:%s' % (game_token, user_token), 'id')),
                 'attack': int(R_CONN.hget('games:%s:superheros:%s' % (game_token, user_token), 'attack')),
                 'health': int(R_CONN.hget('games:%s:superheros:%s' % (game_token, user_token), 'health')),
             }
-        except TypeError as exc:
-            raise Exception('No Hero', 'Game Token', game_token, 'User Token', user_token, exc)
+        
+        return {
+            'token': user_token,
+            'id': None,
+            'attack': 0,
+            'health': 0
+        }
     
     def get_participant_heros(self, game_token, participant_tokens):
         logger.debug('Pull Game\'s Participating Heros')
@@ -209,7 +252,9 @@ class LobbyRoute:
         while R_CONN.get('games:%s:status' % game_token).decode('utf8') != 'Completed':
             await self.health_check(game_token)
 
-            if not R_CONN.get('games:%s:status' % game_token) == 'In-Progress':
+            game_status = R_CONN.get('games:%s:status' % game_token)
+            logger.debug('Game:%s | Status:%s' % (game_token, game_status))
+            if not game_status == 'In-Progress':
                 # Potential Break
                 player = R_CONN.lindex('games:%s:order' % game_token, 0).decode('utf8')
                 player_hero = self.get_hero(game_token, user_token)
@@ -227,7 +272,7 @@ class LobbyRoute:
                             'GAME': 'USER\'S TURN'
                         }
                     })
-                    logging.info('Pushing User\'s Turn Notification', extra={'queue': QUEUE, 'task':log})
+                    logging.info('Pushing User\'s Turn Notification', extra={'queue': QUEUE, 'task': log})
                     await ws.send(log)
             
             session_time += SERVER_SLEEP
@@ -241,17 +286,17 @@ class LobbyRoute:
                 'GAME': 'COMPLETE'
             }
         })
-        logging.info('Game Finished', queue=QUEUE, message=log)
+        logging.info('Game Finished', extra={'queue': QUEUE, 'task': log})
         await ws.send(log)
         await self.clean_game(user_token, game_token)
 
     @misc.validate_payload
     @validate_user_token
     @validate_game_token
+    @validate_participants
     async def wait_players(self, ws, msg, session_time=0):
         logger.debug('Waiting Next Player Action')
         game_token = msg['PAYLOAD']['GAME_TOKEN']
-        # Potential Break
         game_participants = int(R_CONN.get('games:%s:participants' % game_token).decode('utf8'))
         
         while True:

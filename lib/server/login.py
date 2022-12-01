@@ -8,11 +8,11 @@ import json
 import os
 
 # Environment Variables
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 # Setup
 QUEUE=__name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
 
 @router.route('/api/v1/login')
 class LoginRoute:

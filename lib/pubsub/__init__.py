@@ -6,11 +6,11 @@ import os
 
 # Environment Variables
 REDIS_EXPIRY=int(os.getenv('REDIS_EXPIRY', 30))
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 # Setup
 QUEUE=__name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
 
 def clean_routine(msg):
     if isinstance(msg, bytes):

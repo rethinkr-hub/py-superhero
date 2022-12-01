@@ -1,4 +1,4 @@
-FROM python:3-slim
+FROM python:3.9.15-slim-buster
 
 WORKDIR /usr/src/datasim/superhero
 

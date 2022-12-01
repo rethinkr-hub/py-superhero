@@ -1,4 +1,4 @@
-from lib.utils.loggers.base_logger import base_handler
+from lib.utils.loggers.default import base_handler
 from lib.utils.loggers import log_level
 from lib.pubsub.redis import redis_publisher
 

@@ -15,7 +15,7 @@ services:
       - redis
   
   superhero_server:
-    image: python/datasim/superhero
+    image: python/datasim/superhero:latest
     environment:
       - REDIS_HOST=redis
       - SERVER_SLEEP=0.2
@@ -43,6 +43,8 @@ services:
       - WEBSOCKET_HOST=superhero_nginx
       - WEBSOCKET_PORT=8080
     command: ["python", "client.py"]
+    env_file:
+      - ../.env
     depends_on:
       - superhero_server
   

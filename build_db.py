@@ -1,5 +1,4 @@
-from lib.utils.loggers import *
-
+import importlib
 import requests
 import logging
 import redis
@@ -12,11 +11,7 @@ API_TOKEN=os.getenv('API_TOKEN', None)
 REDIS_HOST=os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT=int(os.getenv('REDIS_PORT', '6379'))
 REDIS_DB=os.getenv('REDIS_DB', 0)
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
-
-# Setup
-QUEUE='build_db.%s' % __name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 def pull_data(i=1):
     assert(not API_TOKEN is None)
@@ -75,6 +70,11 @@ def write_data():
             R_CONN.hset('superheros', key=id, value=json.dumps(d))
 
 if __name__ == '__main__':
+    logger_module = importlib.import_module('lib.utils.loggers', LOGGER_MODULE)
+    
+    # Setup
+    QUEUE='client.%s' % __name__
+    logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
     if len(sys.argv) > 1 and sys.argv[1].upper() == 'PULL':
         pull_data()
 

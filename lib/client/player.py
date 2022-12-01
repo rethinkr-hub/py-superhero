@@ -11,11 +11,11 @@ import os
 WEBSOCKET_HOST=os.getenv('WEBSOCKET_HOST', 'localhost')
 WEBSOCKET_PORT=int(os.getenv('WEBSOCKET_PORT', '5678'))
 CLIENT_SLEEP=float(os.getenv('CLIENT_SLEEP', 1))
-BASE_LOGGER=os.getenv('BASE_LOGGER', 'base')
+LOGGER_MODULE=os.getenv('LOGGER_MODULE', 'default')
 
 # Setup
 QUEUE=__name__
-logger=logging.getLogger('%s.%s' % (BASE_LOGGER, QUEUE))
+logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
 
 class Client:
     USER_TOKEN=None
