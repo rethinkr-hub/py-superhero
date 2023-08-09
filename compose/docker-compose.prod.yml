@@ -20,6 +20,7 @@ services:
       - REDIS_HOST=redis
       - SERVER_SLEEP=0.2
       - WEBSOCKET_HOST=0.0.0.0
+      - LOGGER_MODULE=redis
     env_file:
       - ../.env
     depends_on:

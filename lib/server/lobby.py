@@ -3,6 +3,7 @@ from uuid import uuid4
 from lib.server import router, R_CONN, misc
 
 import websockets
+import datetime
 import asyncio
 import logging
 import random
@@ -185,6 +186,7 @@ def validate_participants(f):
         if R_CONN.get('games:%s:participants' % game_token) is None:
             R_CONN.set('games:%s:status' % game_token, 'Timed Out')
             log = json.dumps({
+                'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'PAYLOAD': {
                     'GAME_TOKEN': game_token
                 },
@@ -311,6 +313,7 @@ class LobbyRoute:
                 
                 try:
                     log = json.dumps({
+                        'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                         'PAYLOAD': {
                             'GAME_TOKEN': game_token,
                             'PARTICIPANTS': participants,
@@ -329,6 +332,7 @@ class LobbyRoute:
             elif session_time > LOBBY_TIMEOUT:
                 R_CONN.set('games:%s:status' % game_token, 'Timed Out')
                 log = json.dumps({
+                    'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                     'PAYLOAD': {
                         'GAME_TOKEN': game_token
                     },
