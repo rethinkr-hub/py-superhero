@@ -3,7 +3,6 @@ import requests
 import logging
 import redis
 import json
-import sys
 import os
 
 # Environmnet Variables
@@ -56,18 +55,21 @@ def clean_powerstats(hero):
     return hero
 
 def write_data():
-    R_POOL = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
-    R_CONN = redis.Redis(connection_pool=R_POOL)
+    try:
+        R_POOL = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+        R_CONN = redis.Redis(connection_pool=R_POOL)
 
-    R_CONN.delete('superheros')
-    logger.info('Writing Super Hero Data', extra={'queue': QUEUE})
-    with open('superhero.json', 'r') as f:
-        DATA = json.load(f)
-        for d in DATA:
-            d = clean_powerstats(d)
-            response = d.pop('response')
-            id = d.pop('id')
-            R_CONN.hset('superheros', key=id, value=json.dumps(d))
+        R_CONN.delete('superheros')
+        logger.info('Writing Super Hero Data', extra={'queue': QUEUE})
+        with open('superhero.json', 'r') as f:
+            DATA = json.load(f)
+            for d in DATA:
+                d = clean_powerstats(d)
+                response = d.pop('response')
+                id = d.pop('id')
+                R_CONN.hset('superheros', key=id, value=json.dumps(d))
+    except redis.exceptions.ConnectionError:
+        logger.error('Redis Connection Refused - Abandoning Write to Redis')
 
 if __name__ == '__main__':
     logger_module = importlib.import_module('lib.utils.loggers', LOGGER_MODULE)
@@ -75,7 +77,7 @@ if __name__ == '__main__':
     # Setup
     QUEUE='client.%s' % __name__
     logger=logging.getLogger('%s.%s' % (LOGGER_MODULE, QUEUE))
-    if len(sys.argv) > 1 and sys.argv[1].upper() == 'PULL':
+    if not os.path.isfile('superhero.json'):
         pull_data()
 
     write_data()
