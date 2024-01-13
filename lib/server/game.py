@@ -63,7 +63,7 @@ class GameActionRoute(LobbyRoute):
             combat = self.attack(msg['PAYLOAD']['GAME_TOKEN'], player_hero, enemy_hero)
 
             log = json.dumps({
-                'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f'),
                 'PAYLOAD': {
                     'GAME_TOKEN': msg['PAYLOAD']['GAME_TOKEN'],
                     'USER_TOKEN': msg['PAYLOAD']['USER_TOKEN']
@@ -91,7 +91,7 @@ class GameActionRoute(LobbyRoute):
         else:
             R_CONN.set('games:%s:status' % msg['PAYLOAD']['GAME_TOKEN'], 'Completed')
             log = json.dumps({
-                'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'TIMESTAMP': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f'),
                 'PAYLOAD': {
                     'GAME_TOKEN': msg['PAYLOAD']['GAME_TOKEN'],
                     'USER_TOKEN': msg['PAYLOAD']['USER_TOKEN']
